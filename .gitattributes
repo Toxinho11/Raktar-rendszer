@@ -1,2 +1,6 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+```text
+__pycache__/
+*.pyc
+.idea/
+.vscode/
+raktar_mentes.json
