@@ -1,4 +1,4 @@
-# 📦 Raktározási rendszer
+#  Raktározási rendszer
 
 Ez a projekt egy egyszerű raktározási rendszert valósít meg Python nyelven.
 
