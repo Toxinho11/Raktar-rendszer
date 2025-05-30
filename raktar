@@ -1,0 +1,165 @@
+from abc import ABC, abstractmethod
+from datetime import datetime, timedelta
+import uuid
+import json
+
+# --- Termek osztaly ---
+class Termek:
+    def __init__(self, nev, keszlet):
+        self.nev = nev
+        self.keszlet = keszlet
+
+# --- Foglalas osztaly ---
+class Foglalas:
+    def __init__(self, nev, email, bolt, termek, mennyiseg, datum):
+        self.id = str(uuid.uuid4())[:8]  # rövidített egyedi azonosító
+        self.nev = nev
+        self.email = email
+        self.bolt = bolt
+        self.termek = termek
+        self.mennyiseg = mennyiseg
+        self.foglalas_datum = datum
+        self.kiszallitas_datum = datum + timedelta(days=3)
+
+# --- Raktar ---
+class Raktar:
+    def __init__(self):
+        self.termekek = {}
+        self.foglalasok = []
+        self.boltok = ["Tesco", "Penny", "Lidl", "Aldi", "Spar"]
+
+    def termek_hozzaadas(self, termek):
+        self.termekek[termek.nev] = termek
+
+    def foglalas_hozzaadas(self, foglalas):
+        termek = self.termekek.get(foglalas.termek)
+        if termek and termek.keszlet >= foglalas.mennyiseg:
+            termek.keszlet -= foglalas.mennyiseg
+            self.foglalasok.append(foglalas)
+            return f"Foglalás sikeres! Azonosító: {foglalas.id}"
+        else:
+            return "Nincs elegendő készlet a foglaláshoz."
+
+    def foglalas_lemondas(self, foglalas_id):
+        for foglalas in self.foglalasok:
+            if foglalas.id == foglalas_id:
+                self.termekek[foglalas.termek].keszlet += foglalas.mennyiseg
+                self.foglalasok.remove(foglalas)
+                return "Foglalás lemondva."
+        return "Nem található ilyen azonosítójú foglalás."
+
+    def foglalt_termekek_listazasa(self):
+        if not self.foglalasok:
+            return ["Nincsenek foglalások."]
+        lista = []
+        for foglalas in self.foglalasok:
+            lista.append(
+                f"{foglalas.termek} - {foglalas.mennyiseg} egység - Bolt: {foglalas.bolt} - Név: {foglalas.nev} - E-mail: {foglalas.email} - Foglalás ID: {foglalas.id} - Kiszállítás: {foglalas.kiszallitas_datum.strftime('%Y-%m-%d')}"
+            )
+        return lista
+
+    def szabad_keszlet_listazasa(self):
+        return [f"{termek.nev}: {termek.keszlet} egység" for termek in self.termekek.values()]
+
+    def osszes_foglalas(self):
+        return self.foglalt_termekek_listazasa()
+
+    def mentes_fajlba(self, filename="raktar_mentes.json"):
+        adatok = {
+            "termekek": {nev: termek.keszlet for nev, termek in self.termekek.items()},
+            "foglalasok": [
+                {
+                    "id": f.id,
+                    "nev": f.nev,
+                    "email": f.email,
+                    "bolt": f.bolt,
+                    "termek": f.termek,
+                    "mennyiseg": f.mennyiseg,
+                    "foglalas_datum": f.foglalas_datum.strftime("%Y-%m-%d"),
+                    "kiszallitas_datum": f.kiszallitas_datum.strftime("%Y-%m-%d")
+                } for f in self.foglalasok
+            ]
+        }
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(adatok, f, indent=4)
+
+# --- Elokeszites ---
+def rendszer_inditas():
+    raktar = Raktar()
+    alap_termekek = [
+        "tej", "víz", "cukor", "liszt", "kávé", "csirkemell", "paradicsom"
+    ]
+    for nev in alap_termekek:
+        raktar.termek_hozzaadas(Termek(nev, 100))
+
+    return raktar
+
+# --- Felhasználói felület ---
+def menu():
+    raktar = rendszer_inditas()
+    while True:
+        print("""
+1. Termék foglalása
+2. Foglalás lemondása
+3. Foglalt termékek listázása
+4. Szabad készlet listázása
+5. Összes foglalás megtekintése
+6. Állapot mentése fájlba
+0. Kilépés
+        """)
+        valasztas = input("Válassz egy műveletet: ")
+
+        if valasztas == "1":
+            nev = input("Név: ")
+            email = input("E-mail: ")
+            print("Elérhető boltok:", ", ".join(raktar.boltok))
+            bolt = input("Bolt neve: ")
+            if bolt not in raktar.boltok:
+                print("Hibás bolt név!")
+                continue
+
+            print("Elérhető termékek:", ", ".join(raktar.termekek.keys()))
+            termek = input("Termék neve: ")
+            if termek not in raktar.termekek:
+                print("Hibás terméknév!")
+                continue
+
+            try:
+                mennyiseg = int(input("Mennyiség: "))
+            except ValueError:
+                print("Hibás mennyiség!")
+                continue
+
+            datum = datetime.now()
+            foglalas = Foglalas(nev, email, bolt, termek, mennyiseg, datum)
+            print(raktar.foglalas_hozzaadas(foglalas))
+
+        elif valasztas == "2":
+            foglalas_id = input("Add meg a foglalás azonosítóját: ")
+            print(raktar.foglalas_lemondas(foglalas_id))
+
+        elif valasztas == "3":
+            for f in raktar.foglalt_termekek_listazasa():
+                print(f)
+
+        elif valasztas == "4":
+            for s in raktar.szabad_keszlet_listazasa():
+                print(s)
+
+        elif valasztas == "5":
+            for f in raktar.osszes_foglalas():
+                print(f)
+
+        elif valasztas == "6":
+            raktar.mentes_fajlba()
+            print("Állapot elmentve fájlba.")
+
+        elif valasztas == "0":
+            print("Kilépés...")
+            break
+
+        else:
+            print("Érvénytelen választás.")
+
+if __name__ == "__main__":
+    menu()
